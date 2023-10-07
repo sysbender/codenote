@@ -1,384 +1,471 @@
 /// <reference path="../../monaco-editor-0.18.1/monaco.d.ts" />
 
 (function () {
+  "use strict";
 
-	'use strict';
+  window.onload = function () {
+    // This code runs when the webpage has fully loaded
+    // Load the 'editor.main' module from the Monaco Editor library
+    require(["vs/editor/editor.main"], function () {
+      /*
+		// Load and add an external TypeScript definition file ('monaco.d.ts.txt') as an extra library
 
-	window.onload = function () {
-		require(['vs/editor/editor.main'], function () {
-			xhr('../lib/monaco-editor-website/playground/monaco.d.ts.txt').then(function (response) {
-				monaco.languages.typescript.javascriptDefaults.addExtraLib(response.responseText, 'monaco.d.ts');
-				monaco.languages.typescript.javascriptDefaults.addExtraLib([
-					'declare var require: {',
-					'	toUrl(path: string): string;',
-					'	(moduleName: string): any;',
-					'	(dependencies: string[], callback: (...args: any[]) => any, errorback?: (err: any) => void): any;',
-					'	config(data: any): any;',
-					'	onError: Function;',
-					'};',
-				].join('\n'), 'require.d.ts');
-			});
+      xhr("../lib/monaco-editor-website/playground/monaco.d.ts.txt").then(
+        function (response) {
+          // Add the content of the loaded file as an extra library with the name 'monaco.d.ts'
+          monaco.languages.typescript.javascriptDefaults.addExtraLib(
+            response.responseText,
+            "monaco.d.ts"
+          );
 
-			var loading = document.getElementById('loading');
-			loading.parentNode.removeChild(loading);
-			load();
+          // Add a custom TypeScript definition for 'require' as an extra library ('require.d.ts')
+          monaco.languages.typescript.javascriptDefaults.addExtraLib(
+            [
+              "declare var require: {",
+              "	toUrl(path: string): string;",
+              "	(moduleName: string): any;",
+              "	(dependencies: string[], callback: (...args: any[]) => any, errorback?: (err: any) => void): any;",
+              "	config(data: any): any;",
+              "	onError: Function;",
+              "};",
+            ].join("\n"),
+            "require.d.ts"
+          );
+        }
+      );
+	  */
+      // Remove the 'loading' element from the DOM
+      var loading = document.getElementById("loading");
+      loading.parentNode.removeChild(loading);
+      // Call the 'load' function
+      load();
+    });
+  };
 
-		});
-	};
+  var editor = null;
+  var data = {
+    js: {
+      model: null,
+      state: null,
+    },
+    css: {
+      model: null,
+      state: null,
+    },
+    html: {
+      model: null,
+      state: null,
+    },
+  };
 
-	var editor = null;
-	var data = {
-		js: {
-			model: null,
-			state: null
-		},
-		css: {
-			model: null,
-			state: null
-		},
-		html: {
-			model: null,
-			state: null
-		}
-	};
+  function load() {
+    function layout() {
+      var GLOBAL_PADDING = 20;
 
-	function load() {
+      var WIDTH = window.innerWidth - 2 * GLOBAL_PADDING;
+      var HEIGHT = window.innerHeight;
 
-		function layout() {
-			var GLOBAL_PADDING = 20;
+      var TITLE_HEIGHT = 110;
+      var FOOTER_HEIGHT = 80;
+      var TABS_HEIGHT = 20;
+      var INNER_PADDING = 20;
+      var SWITCHER_HEIGHT = 30;
 
-			var WIDTH = window.innerWidth - 2 * GLOBAL_PADDING;
-			var HEIGHT = window.innerHeight;
+      var HALF_WIDTH = Math.floor((WIDTH - INNER_PADDING) / 2);
+      var REMAINING_HEIGHT =
+        HEIGHT - TITLE_HEIGHT - FOOTER_HEIGHT - SWITCHER_HEIGHT;
 
-			var TITLE_HEIGHT = 110;
-			var FOOTER_HEIGHT = 80;
-			var TABS_HEIGHT = 20;
-			var INNER_PADDING = 20;
-			var SWITCHER_HEIGHT = 30;
+      playgroundContainer.style.width = WIDTH + "px";
+      playgroundContainer.style.height = HEIGHT - FOOTER_HEIGHT + "px";
 
-			var HALF_WIDTH = Math.floor((WIDTH - INNER_PADDING) / 2);
-			var REMAINING_HEIGHT = HEIGHT - TITLE_HEIGHT - FOOTER_HEIGHT - SWITCHER_HEIGHT;
+      sampleSwitcher.style.position = "absolute";
+      sampleSwitcher.style.top = TITLE_HEIGHT + "px";
+      sampleSwitcher.style.left = GLOBAL_PADDING + "px";
 
-			playgroundContainer.style.width = WIDTH + 'px';
-			playgroundContainer.style.height = (HEIGHT - FOOTER_HEIGHT) + 'px';
+      typingContainer.style.position = "absolute";
+      typingContainer.style.top =
+        GLOBAL_PADDING + TITLE_HEIGHT + SWITCHER_HEIGHT + "px";
+      typingContainer.style.left = GLOBAL_PADDING + "px";
+      typingContainer.style.width = HALF_WIDTH + "px";
+      typingContainer.style.height = REMAINING_HEIGHT + "px";
 
-			sampleSwitcher.style.position = 'absolute';
-			sampleSwitcher.style.top = TITLE_HEIGHT + 'px';
-			sampleSwitcher.style.left = GLOBAL_PADDING + 'px';
+      tabArea.style.position = "absolute";
+      tabArea.style.boxSizing = "border-box";
+      tabArea.style.top = 0;
+      tabArea.style.left = 0;
+      tabArea.style.width = HALF_WIDTH + "px";
+      tabArea.style.height = TABS_HEIGHT + "px";
 
-			typingContainer.style.position = 'absolute';
-			typingContainer.style.top = GLOBAL_PADDING + TITLE_HEIGHT + SWITCHER_HEIGHT + 'px';
-			typingContainer.style.left = GLOBAL_PADDING + 'px';
-			typingContainer.style.width = HALF_WIDTH + 'px';
-			typingContainer.style.height = REMAINING_HEIGHT + 'px';
+      editorContainer.style.position = "absolute";
+      editorContainer.style.boxSizing = "border-box";
+      editorContainer.style.top = TABS_HEIGHT + "px";
+      editorContainer.style.left = 0;
+      editorContainer.style.width = HALF_WIDTH + "px";
+      editorContainer.style.height = REMAINING_HEIGHT - TABS_HEIGHT + "px";
 
-			tabArea.style.position = 'absolute';
-			tabArea.style.boxSizing = 'border-box';
-			tabArea.style.top = 0;
-			tabArea.style.left = 0;
-			tabArea.style.width = HALF_WIDTH + 'px';
-			tabArea.style.height = TABS_HEIGHT + 'px';
+      if (editor) {
+        editor.layout({
+          width: HALF_WIDTH - 2,
+          height: REMAINING_HEIGHT - TABS_HEIGHT - 1,
+        });
+      }
 
-			editorContainer.style.position = 'absolute';
-			editorContainer.style.boxSizing = 'border-box';
-			editorContainer.style.top = TABS_HEIGHT + 'px';
-			editorContainer.style.left = 0;
-			editorContainer.style.width = HALF_WIDTH + 'px';
-			editorContainer.style.height = (REMAINING_HEIGHT - TABS_HEIGHT) + 'px';
+      runContainer.style.position = "absolute";
+      runContainer.style.top =
+        GLOBAL_PADDING + TITLE_HEIGHT + SWITCHER_HEIGHT + TABS_HEIGHT + "px";
+      runContainer.style.left =
+        GLOBAL_PADDING + INNER_PADDING + HALF_WIDTH + "px";
+      runContainer.style.width = HALF_WIDTH + "px";
+      runContainer.style.height = REMAINING_HEIGHT - TABS_HEIGHT + "px";
 
-			if (editor) {
-				editor.layout({
-					width: HALF_WIDTH - 2,
-					height: (REMAINING_HEIGHT - TABS_HEIGHT) - 1
-				});
-			}
+      runIframeHeight = REMAINING_HEIGHT - TABS_HEIGHT;
+      if (runIframe) {
+        runIframe.style.height = runIframeHeight + "px";
+      }
+    }
 
-			runContainer.style.position = 'absolute';
-			runContainer.style.top = GLOBAL_PADDING + TITLE_HEIGHT + SWITCHER_HEIGHT + TABS_HEIGHT + 'px';
-			runContainer.style.left = GLOBAL_PADDING + INNER_PADDING + HALF_WIDTH + 'px';
-			runContainer.style.width = HALF_WIDTH + 'px';
-			runContainer.style.height = (REMAINING_HEIGHT - TABS_HEIGHT) + 'px';
+    function changeTab(selectedTabNode, desiredModelId) {
+      for (var i = 0; i < tabArea.childNodes.length; i++) {
+        var child = tabArea.childNodes[i];
+        if (/tab/.test(child.className)) {
+          child.className = "tab";
+        }
+      }
+      selectedTabNode.className = "tab active";
 
-			runIframeHeight = (REMAINING_HEIGHT - TABS_HEIGHT);
-			if (runIframe) {
-				runIframe.style.height = runIframeHeight + 'px';
-			}
-		}
+      var currentState = editor.saveViewState();
 
-		function changeTab(selectedTabNode, desiredModelId) {
-			for (var i = 0; i < tabArea.childNodes.length; i++) {
-				var child = tabArea.childNodes[i];
-				if (/tab/.test(child.className)) {
-					child.className = 'tab';
-				}
-			}
-			selectedTabNode.className = 'tab active';
+      var currentModel = editor.getModel();
+      if (currentModel === data.js.model) {
+        data.js.state = currentState;
+      } else if (currentModel === data.css.model) {
+        data.css.state = currentState;
+      } else if (currentModel === data.html.model) {
+        data.html.state = currentState;
+      }
 
-			var currentState = editor.saveViewState();
+      editor.setModel(data[desiredModelId].model);
+      editor.restoreViewState(data[desiredModelId].state);
+      editor.focus();
+    }
 
-			var currentModel = editor.getModel();
-			if (currentModel === data.js.model) {
-				data.js.state = currentState;
-			} else if (currentModel === data.css.model) {
-				data.css.state = currentState;
-			} else if (currentModel === data.html.model) {
-				data.html.state = currentState;
-			}
+    // create the typing side
+    var typingContainer = document.createElement("div");
+    typingContainer.className = "typingContainer";
 
-			editor.setModel(data[desiredModelId].model);
-			editor.restoreViewState(data[desiredModelId].state);
-			editor.focus();
-		}
+    var tabArea = (function () {
+      var tabArea = document.createElement("div");
+      tabArea.className = "tabArea";
 
+      var jsTab = document.createElement("span");
+      jsTab.className = "tab active";
+      jsTab.appendChild(document.createTextNode("JavaScript"));
+      jsTab.onclick = function () {
+        changeTab(jsTab, "js");
+      };
+      tabArea.appendChild(jsTab);
 
-		// create the typing side
-		var typingContainer = document.createElement('div');
-		typingContainer.className = 'typingContainer';
+      var cssTab = document.createElement("span");
+      cssTab.className = "tab";
+      cssTab.appendChild(document.createTextNode("CSS"));
+      cssTab.onclick = function () {
+        changeTab(cssTab, "css");
+      };
+      tabArea.appendChild(cssTab);
 
-		var tabArea = (function () {
-			var tabArea = document.createElement('div');
-			tabArea.className = 'tabArea';
+      var htmlTab = document.createElement("span");
+      htmlTab.className = "tab";
+      htmlTab.appendChild(document.createTextNode("HTML"));
+      htmlTab.onclick = function () {
+        changeTab(htmlTab, "html");
+      };
+      tabArea.appendChild(htmlTab);
 
-			var jsTab = document.createElement('span');
-			jsTab.className = 'tab active';
-			jsTab.appendChild(document.createTextNode('JavaScript'));
-			jsTab.onclick = function () { changeTab(jsTab, 'js'); };
-			tabArea.appendChild(jsTab);
+      var runBtn = document.createElement("span");
+      runBtn.className = "action run";
+      runBtn.appendChild(document.createTextNode("Run"));
+      runBtn.onclick = function () {
+        run();
+      };
+      tabArea.appendChild(runBtn);
 
-			var cssTab = document.createElement('span');
-			cssTab.className = 'tab';
-			cssTab.appendChild(document.createTextNode('CSS'));
-			cssTab.onclick = function () { changeTab(cssTab, 'css'); };
-			tabArea.appendChild(cssTab);
+      return tabArea;
+    })();
 
-			var htmlTab = document.createElement('span');
-			htmlTab.className = 'tab';
-			htmlTab.appendChild(document.createTextNode('HTML'));
-			htmlTab.onclick = function () { changeTab(htmlTab, 'html'); };
-			tabArea.appendChild(htmlTab);
+    var editorContainer = document.createElement("div");
+    editorContainer.className = "editor-container";
 
-			var runBtn = document.createElement('span');
-			runBtn.className = 'action run';
-			runBtn.appendChild(document.createTextNode('Run'));
-			runBtn.onclick = function () { run(); };
-			tabArea.appendChild(runBtn);
+    typingContainer.appendChild(tabArea);
+    typingContainer.appendChild(editorContainer);
 
-			return tabArea;
-		})();
+    var runContainer = document.createElement("div");
+    runContainer.className = "run-container";
 
-		var editorContainer = document.createElement('div');
-		editorContainer.className = 'editor-container';
+    var sampleSwitcher = document.createElement("select");
+    var sampleChapter;
+    PLAY_SAMPLES.forEach(function (sample) {
+      if (!sampleChapter || sampleChapter.label !== sample.chapter) {
+        sampleChapter = document.createElement("optgroup");
+        sampleChapter.label = sample.chapter;
+        sampleSwitcher.appendChild(sampleChapter);
+      }
+      var sampleOption = document.createElement("option");
+      sampleOption.value = sample.id;
+      sampleOption.appendChild(document.createTextNode(sample.name));
+      sampleChapter.appendChild(sampleOption);
+    });
+    sampleSwitcher.className = "sample-switcher";
 
-		typingContainer.appendChild(tabArea);
-		typingContainer.appendChild(editorContainer);
+    var LOADED_SAMPLES = [];
+    function findLoadedSample(sampleId) {
+      for (var i = 0; i < LOADED_SAMPLES.length; i++) {
+        var sample = LOADED_SAMPLES[i];
+        if (sample.id === sampleId) {
+          return sample;
+        }
+      }
+      return null;
+    }
 
-		var runContainer = document.createElement('div');
-		runContainer.className = 'run-container';
+    function findSamplePath(sampleId) {
+      for (var i = 0; i < PLAY_SAMPLES.length; i++) {
+        var sample = PLAY_SAMPLES[i];
+        if (sample.id === sampleId) {
+          return sample.path;
+        }
+      }
+      return null;
+    }
 
-		var sampleSwitcher = document.createElement('select');
-		var sampleChapter;
-		PLAY_SAMPLES.forEach(function (sample) {
-			if (!sampleChapter || sampleChapter.label !== sample.chapter) {
-				sampleChapter = document.createElement('optgroup');
-				sampleChapter.label = sample.chapter;
-				sampleSwitcher.appendChild(sampleChapter);
-			}
-			var sampleOption = document.createElement('option');
-			sampleOption.value = sample.id;
-			sampleOption.appendChild(document.createTextNode(sample.name));
-			sampleChapter.appendChild(sampleOption);
-		});
-		sampleSwitcher.className = 'sample-switcher';
+    function loadSample(sampleId, callback) {
+      var sample = findLoadedSample(sampleId);
+      if (sample) {
+        return callback(null, sample);
+      }
 
-		var LOADED_SAMPLES = [];
-		function findLoadedSample(sampleId) {
-			for (var i = 0; i < LOADED_SAMPLES.length; i++) {
-				var sample = LOADED_SAMPLES[i];
-				if (sample.id === sampleId) {
-					return sample;
-				}
-			}
-			return null;
-		}
+      var samplePath = findSamplePath(sampleId);
+      if (!samplePath) {
+        return callback(new Error("sample not found"));
+      }
 
-		function findSamplePath(sampleId) {
-			for (var i = 0; i < PLAY_SAMPLES.length; i++) {
-				var sample = PLAY_SAMPLES[i];
-				if (sample.id === sampleId) {
-					return sample.path;
-				}
-			}
-			return null;
-		}
+      samplePath =
+        "../lib/monaco-editor-website/" +
+        "playground/new-samples/" +
+        samplePath;
 
-		function loadSample(sampleId, callback) {
-			var sample = findLoadedSample(sampleId);
-			if (sample) {
-				return callback(null, sample);
-			}
+      var js = xhr(samplePath + "/sample.js").then(function (response) {
+        return response.responseText;
+      });
+      var css = xhr(samplePath + "/sample.css").then(function (response) {
+        return response.responseText;
+      });
+      var html = xhr(samplePath + "/sample.html").then(function (response) {
+        return response.responseText;
+      });
+      Promise.all([js, css, html]).then(
+        function (_) {
+          var js = _[0];
+          var css = _[1];
+          var html = _[2];
+          LOADED_SAMPLES.push({
+            id: sampleId,
+            js: js,
+            css: css,
+            html: html,
+          });
+          return callback(null, findLoadedSample(sampleId));
+        },
+        function (err) {
+          callback(err, null);
+        }
+      );
+    }
 
-			var samplePath = findSamplePath(sampleId);
-			if (!samplePath) {
-				return callback(new Error('sample not found'));
-			}
+    sampleSwitcher.onchange = function () {
+      var sampleId = sampleSwitcher.options[sampleSwitcher.selectedIndex].value;
+      window.location.hash = sampleId;
+    };
 
-			samplePath = '../lib/monaco-editor-website/'+'playground/new-samples/' + samplePath;
+    var playgroundContainer = document.getElementById("playground");
 
-			var js = xhr(samplePath + '/sample.js').then(function (response) { return response.responseText });
-			var css = xhr(samplePath + '/sample.css').then(function (response) { return response.responseText });
-			var html = xhr(samplePath + '/sample.html').then(function (response) { return response.responseText });
-			Promise.all([js, css, html]).then(function (_) {
-				var js = _[0];
-				var css = _[1];
-				var html = _[2];
-				LOADED_SAMPLES.push({
-					id: sampleId,
-					js: js,
-					css: css,
-					html: html
-				});
-				return callback(null, findLoadedSample(sampleId));
-			}, function (err) {
-				callback(err, null);
-			});
-		}
+    layout();
+    window.onresize = layout;
 
-		sampleSwitcher.onchange = function () {
-			var sampleId = sampleSwitcher.options[sampleSwitcher.selectedIndex].value;
-			window.location.hash = sampleId;
-		};
+    playgroundContainer.appendChild(sampleSwitcher);
+    playgroundContainer.appendChild(typingContainer);
+    playgroundContainer.appendChild(runContainer);
 
-		var playgroundContainer = document.getElementById('playground');
+    data.js.model = monaco.editor.createModel(
+      'console.log("hi")',
+      "javascript"
+    );
+    data.css.model = monaco.editor.createModel("css", "css");
+    data.html.model = monaco.editor.createModel("html", "html");
 
-		layout();
-		window.onresize = layout;
+    editor = monaco.editor.create(editorContainer, {
+      model: data.js.model,
+      minimap: {
+        enabled: false,
+      },
+    });
 
-		playgroundContainer.appendChild(sampleSwitcher);
-		playgroundContainer.appendChild(typingContainer);
-		playgroundContainer.appendChild(runContainer);
+    var currentToken = 0;
+    function parseHash(firstTime) {
+      var sampleId = window.location.hash.replace(/^#/, "");
+      if (!sampleId) {
+        sampleId = PLAY_SAMPLES[0].id;
+      }
 
-		data.js.model = monaco.editor.createModel('console.log("hi")', 'javascript');
-		data.css.model = monaco.editor.createModel('css', 'css');
-		data.html.model = monaco.editor.createModel('html', 'html');
+      if (firstTime) {
+        for (var i = 0; i < sampleSwitcher.options.length; i++) {
+          var opt = sampleSwitcher.options[i];
+          if (opt.value === sampleId) {
+            sampleSwitcher.selectedIndex = i;
+            break;
+          }
+        }
+      }
 
-		editor = monaco.editor.create(editorContainer, {
-			model: data.js.model,
-			minimap: {
-				enabled: false
-			}
-		});
+      var myToken = ++currentToken;
+      loadSample(sampleId, function (err, sample) {
+        if (err) {
+          alert("Sample not found! " + err.message);
+          return;
+        }
+        if (myToken !== currentToken) {
+          return;
+        }
+        data.js.model.setValue(sample.js);
+        data.html.model.setValue(sample.html);
+        data.css.model.setValue(sample.css);
+        editor.setScrollTop(0);
+        run();
+      });
+    }
+    window.onhashchange = parseHash;
+    parseHash(true);
 
-		var currentToken = 0;
-		function parseHash(firstTime) {
-			var sampleId = window.location.hash.replace(/^#/, '');
-			if (!sampleId) {
-				sampleId = PLAY_SAMPLES[0].id;
-			}
+    function run() {
+      doRun(runContainer);
+    }
+  }
 
-			if (firstTime) {
-				for (var i = 0; i < sampleSwitcher.options.length; i++) {
-					var opt = sampleSwitcher.options[i];
-					if (opt.value === sampleId) {
-						sampleSwitcher.selectedIndex = i;
-						break;
-					}
-				}
-			}
+  var runIframe = null,
+    runIframeHeight = 0;
+  function doRun(runContainer) {
+    if (runIframe) {
+      // Unload old iframe
+      runContainer.removeChild(runIframe);
+    }
 
-			var myToken = (++currentToken);
-			loadSample(sampleId, function (err, sample) {
-				if (err) {
-					alert('Sample not found! ' + err.message);
-					return;
-				}
-				if (myToken !== currentToken) {
-					return;
-				}
-				data.js.model.setValue(sample.js);
-				data.html.model.setValue(sample.html);
-				data.css.model.setValue(sample.css);
-				editor.setScrollTop(0);
-				run();
-			});
-		}
-		window.onhashchange = parseHash;
-		parseHash(true);
+    // Load new iframe
+    runIframe = document.createElement("iframe");
+    runIframe.id = "runner";
+    runIframe.src =
+      "../lib/monaco-editor-website/" + "playground/playground-runner.html";
+    runIframe.className = "run-iframe";
+    runIframe.style.boxSizing = "border-box";
+    runIframe.style.height = runIframeHeight + "px";
+    runIframe.style.width = "100%";
+    runIframe.style.border = "1px solid lightgrey";
+    runIframe.frameborder = "0";
+    runContainer.appendChild(runIframe);
 
-		function run() {
-			doRun(runContainer);
-		}
-	}
+    var getLang = function (lang) {
+      return data[lang].model.getValue();
+    };
 
-	var runIframe = null, runIframeHeight = 0;
-	function doRun(runContainer) {
-		if (runIframe) {
-			// Unload old iframe
-			runContainer.removeChild(runIframe);
-		}
+    runIframe.addEventListener("load", function (e) {
+      runIframe.contentWindow.load(
+        getLang("js"),
+        getLang("html"),
+        getLang("css")
+      );
+    });
+  }
 
-		// Load new iframe
-		runIframe = document.createElement('iframe');
-		runIframe.id = 'runner';
-		runIframe.src ='../lib/monaco-editor-website/'+ 'playground/playground-runner.html';
-		runIframe.className = 'run-iframe';
-		runIframe.style.boxSizing = 'border-box';
-		runIframe.style.height = runIframeHeight + 'px';
-		runIframe.style.width = '100%';
-		runIframe.style.border = '1px solid lightgrey';
-		runIframe.frameborder = '0';
-		runContainer.appendChild(runIframe);
+  /**
+   *  preloading content from <pre> elements with a data-preload attribute
+   * in an HTML document and storing that content in an object called preloaded.
+   */
+  var preloaded = {};
+  (function () {
+    // Select all <pre> elements with a 'data-preload' attribute.
+    var elements = Array.prototype.slice.call(
+      //It converts the resulting NodeList into an array using Array.prototype.slice.call().
+      // can use Array.from or spread operator ...
+      document.querySelectorAll("pre[data-preload]"),
+      0
+    );
 
-		var getLang = function (lang) {
-			return data[lang].model.getValue();
-		};
+    // Iterate through each selected <pre> element.
+    elements.forEach(function (el) {
+      // Get the 'data-preload' attribute value, which likely contains a path or identifier.
+      var path = el.getAttribute("data-preload");
+      // Get the text content of the <pre> element (innerText for modern browsers, textContent for older browsers).
+      // Then, store it in the 'preloaded' object using the 'path' as the key.
+      preloaded[path] = el.innerText || el.textContent;
+      // Remove the <pre> element from the DOM, as its content has been preloaded.
+      el.parentNode.removeChild(el);
+    });
+  })(); // This is an immediately-invoked function expression (IIFE) that runs immediately.
 
-		runIframe.addEventListener('load', function (e) {
-			runIframe.contentWindow.load(getLang('js'), getLang('html'), getLang('css'));
-		});
-	}
+  /**
+   * This xhr function provides a convenient way to make asynchronous HTTP requests
+   * and handle their responses using Promises,
+   * making it useful for loading resources like text files in a web application.
+   * @param {*} url
+   * @returns
+   */
 
-	var preloaded = {};
-	(function () {
-		var elements = Array.prototype.slice.call(document.querySelectorAll('pre[data-preload]'), 0);
+  function xhr(url) {
+    // Check if the resource with the specified URL is preloaded.
+    if (preloaded[url]) {
+      // If preloaded, resolve the Promise immediately with the preloaded content.
+      return Promise.resolve({
+        responseText: preloaded[url],
+      });
+    }
 
-		elements.forEach(function (el) {
-			var path = el.getAttribute('data-preload');
-			preloaded[path] = el.innerText || el.textContent;
-			el.parentNode.removeChild(el);
-		});
-	})();
+    var req = null; // Initialize an XMLHttpRequest object.
+    // Create and return a new Promise.
+    return new Promise(
+      function (c, e) {
+        //c=resolve, e=reject
+        // Inside the Promise constructor:
+        // Create a new XMLHttpRequest object.
+        req = new XMLHttpRequest();
+        // Set up an event handler to monitor the state change of the XMLHttpRequest.
+        req.onreadystatechange = function () {
+          if (req._canceled) {
+            return; // If the request is canceled, do nothing.
+          }
 
-	function xhr(url) {
-		if (preloaded[url]) {
-			return Promise.resolve({
-				responseText: preloaded[url]
-			});
-		}
-
-		var req = null;
-		return new Promise(function (c, e) {
-			req = new XMLHttpRequest();
-			req.onreadystatechange = function () {
-				if (req._canceled) { return; }
-
-				if (req.readyState === 4) {
-					if ((req.status >= 200 && req.status < 300) || req.status === 1223) {
-						c(req);
-					} else {
-						e(req);
-					}
-					req.onreadystatechange = function () { };
-				}
-			};
-
-			req.open("GET", url, true);
-			req.responseType = "";
-
-			req.send(null);
-		}, function () {
-			req._canceled = true;
-			req.abort();
-		});
-	}
-
+          if (req.readyState === 4) {
+            // When the request reaches the 'DONE' state (readyState 4):
+            if (
+              (req.status >= 200 && req.status < 300) || // If the status code is in the 200-299 range, or
+              req.status === 1223 // A workaround for Internet Explorer
+            ) {
+              c(req); // Resolve the Promise with the XMLHttpRequest object.
+            } else {
+              e(req); // Reject the Promise with the XMLHttpRequest object in case of an error.
+            }
+            // Remove the event listener to prevent memory leaks.
+            req.onreadystatechange = function () {};
+          }
+        };
+        // Configure the XMLHttpRequest object for a GET request to the specified URL.
+        req.open("GET", url, true);
+        req.responseType = "";
+        // Send the GET request.
+        req.send(null);
+      },
+      // This function is called when the Promise is canceled.
+      function () {
+        req._canceled = true;
+        req.abort(); // Abort the XMLHttpRequest.
+      }
+    );
+  }
 })();
