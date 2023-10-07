@@ -1,0 +1,90 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <script src="https://code.jquery.com/jquery-3.7.1.min.js"></script>
+    <!-- <link
+      rel="stylesheet"
+      href="https://cdnjs.cloudflare.com/ajax/libs/monaco-editor/0.43.0/min/vs/editor/editor.main.css"
+    /> -->
+
+    <link
+      rel="stylesheet"
+      data-name="vs/editor/editor.main"
+      href="https://cdnjs.cloudflare.com/ajax/libs/monaco-editor/0.26.1/min/vs/editor/editor.main.min.css"
+    />
+
+    <title>Document</title>
+  </head>
+  <body>
+    <script>
+      var require = {
+        paths: {
+          vs: "https://cdnjs.cloudflare.com/ajax/libs/monaco-editor/0.26.1/min/vs",
+        },
+      };
+    </script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/monaco-editor/0.26.1/min/vs/loader.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/monaco-editor/0.26.1/min/vs/editor/editor.main.nls.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/monaco-editor/0.26.1/min/vs/editor/editor.main.js"></script>
+
+    <h1>my blog</h1>
+    <p>some inro</p>
+    <pre id="CodeBlock" data-lang="csharp">
+        using System;
+        namespace VSCodeEditor{
+            class Program {
+                static void Main(string[] arg){
+                    Console.WriteLine("hello world!")
+                }
+            }
+        }
+
+
+    </pre>
+    <div
+      id="container"
+      style="width: 800px; height: 600px; border: 1px solid grey"
+    ></div>
+
+    <p>wasn't that cool</p>
+
+    <script>
+      //   let block = document.querySelector("#CodeBlock");
+      //   //   monaco.editor.colorizeElement(block);
+      //   monaco.editor.create(block, {
+      //     value: `function x() {
+      //     console.log("Hello world!");
+      //   }`,
+      //     language: "javascript",
+      //     theme: "vs-dark",
+      //   });
+      let codeElem = document.getElementById("container");
+      let codeContent = [
+        "function x() {",
+        '\tconsole.log("Hello , world!!");',
+        "}",
+      ].join("\n");
+      let codeEditor = monaco.editor.create(codeElem, {
+        value: codeContent,
+        language: "javascript",
+        lineHeight: 19,
+        glyphMargin: false,
+        verticalScrollbarSize: 10,
+        horizontalScrollbarSize: 10,
+        scrollBeyondLastLine: false,
+        readOnly: true,
+        automaticLayout: true,
+        minimap: {
+          enabled: false,
+        },
+        lineHeight: 19,
+      });
+
+      codeElem.style.height = `${
+        codeEditor.getModel().getLineCount() * 19 + 10
+      }px`;
+    </script>
+  </body>
+</html>
